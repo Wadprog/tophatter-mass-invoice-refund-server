@@ -51,7 +51,7 @@ app.post('/upload', (req, res) => {
         data: resp,
       })
     } catch (err) {
-      console.log({ res })
+      console.log({ err })
 
       return res.status(500).json({
         error: err,
