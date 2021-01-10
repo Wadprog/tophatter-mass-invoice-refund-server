@@ -12,6 +12,8 @@ ENVIRONMENT.development = {
     headless: true,
     devtools: false,
     slowMo: 10,
+    executablePath: '/usr/bin/chromium-browser',
+    args: ['--no-sandbox'],
   },
 }
 ENVIRONMENT.production = {
@@ -21,6 +23,8 @@ ENVIRONMENT.production = {
     headless: false,
     devTools: true,
     slowMo: 5,
+    executablePath: '/usr/bin/chromium-browser',
+    args: ['--no-sandbox'],
   },
 }
 

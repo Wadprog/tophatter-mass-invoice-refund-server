@@ -28,6 +28,7 @@ app.post('/upload', (req, res) => {
   const file = req.files.file
   let { user_secret, reason, refund_type } = req.query
   refund_type = abbrRefundType(refund_type)
+
   if (!user_secret || !refund_type || !reason)
     return res.status(400).json({ msg: 'missing secret token' })
 
@@ -36,6 +37,7 @@ app.post('/upload', (req, res) => {
 
     let orderNumbers = csvToArray(`${__dirname}/uploads/${file.name}`)
     console.log({ orderNumbers })
+
     try {
       let resp = await orderFromCSV(
         orderNumbers,
@@ -44,7 +46,6 @@ app.post('/upload', (req, res) => {
         reason
       )
 
-      console.log({ ...resp })
       return res.json({
         fileName: resp.status,
         filePath: `/uploads/${file.name}`,
@@ -64,9 +65,8 @@ app.post('/upload', (req, res) => {
 app.post('/', async (req, res) => {
   console.log(req.body)
   try {
-    let response = await closeOrderFromRange(req.body)
-    console.log({ response })
-    return res.json({ msg: 'processing refunds' })
+    await closeOrderFromRange(req.body)
+    return res.json({ msg: 'process done' })
   } catch (error) {
     console.error(error.message)
     return res.status(500).json({ msg: error.message })

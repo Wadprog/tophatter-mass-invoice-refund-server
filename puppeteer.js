@@ -14,48 +14,6 @@ const {
   getInvoiceUrl,
 } = require('./helper')
 
-const refundOrderList = ({ range, reason }) => {
-  let orders = []
-  const orderTableRows = document.querySelectorAll(
-    'table.table.table-striped > tbody >tr'
-  )
-  for (let tableRow of orderTableRows) {
-    let secondTd = tableRow.querySelector('td').nextElementSibling
-    if (secondTd) {
-      let secondDiv = secondTd.querySelector('div').nextElementSibling
-      let anchorTags = secondDiv.querySelector('span').querySelector('a')
-        .nextElementSibling
-      const url = anchorTags.href
-      const urlArray = url.split('/')
-      const number = urlArray[urlArray.length - 1]
-
-      if (range.some((num) => num == number)) {
-        let actionBtn = tableRow.querySelector('.dropdown')
-        let refundBtn = actionBtn.querySelector('.dropdown-item.refund')
-
-        if (refundBtn) {
-          refundBtn.click()
-          let select = document.querySelector('#refund-reason-type')
-
-          let options = select.querySelectorAll('option')
-          let refundReason = null
-
-          for (let option of options) {
-            console.log(option.value)
-            if (option.value == 'account_takeover') {
-              refundReason = option
-              break
-            }
-          }
-          select.value = reason
-          const summitBtn = document.querySelector('#refund-issue')
-        }
-      }
-      orders.push({ number, url })
-    }
-  }
-}
-
 async function closeOrderFromRange({
   firstNum,
   secondNum,
@@ -81,6 +39,7 @@ async function closeOrderFromRange({
 
     const url = getClientOrderPageURL(user_secret, userID)
     await page.goto(url)
+
     await page.evaluate(async (obj) => {
       const { reason, range, refund_type } = obj
 
@@ -143,51 +102,66 @@ const orderFromCSV = async (array, user_secret, refund_type, reason) => {
 
     for (let order of array) {
       let url = getInvoiceUrl(order, user_secret)
+      try {
+        await page.goto(url)
+        let result = await page.evaluate(async (obj) => {
+          const { refund_type, reason, report } = obj
 
-      await page.goto(url)
-      let result = await page.evaluate(async (obj) => {
-        const { refund_type, reason, report } = obj
+          let refundTypes = document.querySelectorAll('.dropdown-item.refund')
+          if (refundTypes) {
+            let refundBtn = null
 
-        let refundTypes = document.querySelectorAll('.dropdown-item.refund')
-        if (refundTypes) {
-          let refundBtn = null
+            for (let btn of refundTypes) {
+              const btnText = btn.innerText.toString()
 
-          for (let btn of refundTypes) {
-            const btnText = btn.innerText.toString()
+              if (btnText.includes(refund_type)) refundBtn = btn
+            }
+            if (refundBtn) {
+              refundBtn.click()
+              let select = document.querySelector('#refund-reason-type')
 
-            if (btnText.includes(refund_type)) refundBtn = btn
-          }
-          if (refundBtn) {
-            refundBtn.click()
-            let select = document.querySelector('#refund-reason-type')
+              if (select) {
+                select.value = reason
+                const summitBtn = document.querySelector('#refund-issue')
 
-            if (select) {
-              select.value = reason
-              const summitBtn = document.querySelector('#refund-issue')
-
-              if (summitBtn) {
-                summitBtn.click()
-                return { refunded: true, msg: 'refunded', reason, refund_type }
+                if (summitBtn) {
+                  summitBtn.click()
+                  return {
+                    refunded: true,
+                    msg: 'refunded',
+                    reason,
+                    refund_type,
+                  }
+                }
+              }
+            } else {
+              return {
+                refunded: false,
+                msg: 'Refund type not found',
+                reason,
+                refund_type,
               }
             }
           } else {
             return {
               refunded: false,
-              msg: 'Refund type not found',
+              msg: 'Order not refundable',
               reason,
               refund_type,
             }
           }
-        } else {
-          return {
-            refunded: false,
-            msg: 'Order not refundable',
-            reason,
-            refund_type,
-          }
+        }, obj)
+        report.push({ url, order, ...result })
+      } catch (error) {
+        console.log('Error on url : ' + url)
+        let result = {
+          refunded: false,
+          msg: 'Error navigating through this order',
+          reason: 'Puppeteer failed',
+          refund_type: 'Puppeteer failed ',
         }
-      }, obj)
-      report.push({ url, order, ...result })
+        report.push({ url, order, ...result })
+      }
     }
     console.log('end')
     console.log({ report })
@@ -196,14 +170,5 @@ const orderFromCSV = async (array, user_secret, refund_type, reason) => {
   }
   return { msg: 'done', status: 500 }
 }
-const test = () => {
-  closeOrderFromRange({
-    firstNum: 123064228,
-    secondNum: 123080949,
-    reason: 'account_takeover',
-    user_secret: 'bcda3943acb5c6571970',
-    userID: '3610760',
-  })
-}
-//test()
+
 module.exports = { closeOrderFromRange, orderFromCSV }
